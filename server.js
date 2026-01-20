@@ -1,30 +1,40 @@
+require("dotenv").config();
 const express = require("express");
-const dotenv = require("dotenv");
 const mongoose = require("mongoose");
-
-dotenv.config();
+const cors = require("cors");
 
 const app = express();
 
-/* ✅ THIS LINE IS MANDATORY */
+/* ---------- Middleware ---------- */
+app.use(cors());
 app.use(express.json());
-app.use("/api/payments", require("./routes/paymentRoutes"));
 
-
-/* Routes */
+/* ---------- Routes ---------- */
 const authRoutes = require("./routes/authRoutes");
 const enquiryRoutes = require("./routes/enquiryRoutes");
 const admissionRoutes = require("./routes/admissionRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/enquiries", enquiryRoutes);
 app.use("/api/admissions", admissionRoutes);
+app.use("/api/payments", paymentRoutes);
 
-/* Mongo */
-mongoose.connect(process.env.MONGO_URI)
+/* ---------- Health Check ---------- */
+app.get("/", (req, res) => {
+  res.send("Admire CRM backend is running");
+});
+
+/* ---------- Database ---------- */
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error(err));
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  });
 
+/* ---------- Start Server (CRITICAL FOR RENDER) ---------- */
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
