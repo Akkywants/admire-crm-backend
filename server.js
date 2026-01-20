@@ -8,6 +8,7 @@ const app = express();
 /* ---------- Middleware ---------- */
 app.use(cors());
 app.use(express.json());
+app.use("/api/dashboard", require("./routes/dashboardRoutes"));
 
 /* ---------- Routes ---------- */
 const authRoutes = require("./routes/authRoutes");
@@ -19,6 +20,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/enquiries", enquiryRoutes);
 app.use("/api/admissions", admissionRoutes);
 app.use("/api/payments", paymentRoutes);
+
+
 
 /* ---------- Health Check ---------- */
 app.get("/", (req, res) => {
