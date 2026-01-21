@@ -6,40 +6,57 @@ const Enquiry = require("../models/Enquiry");
 const Admission = require("../models/Admission");
 const Payment = require("../models/Payment");
 
-/**
- * GET /api/dashboard
- */
 router.get("/", auth, async (req, res) => {
   try {
+    // ENQUIRIES
     const totalEnquiries = await Enquiry.countDocuments();
     const openEnquiries = await Enquiry.countDocuments({ status: "Open" });
     const convertedEnquiries = await Enquiry.countDocuments({ status: "Converted" });
 
+    // ADMISSIONS & FINANCE
     const admissions = await Admission.find();
-    const totalAdmissions = admissions.length;
 
     let totalFees = 0;
-    let totalCollected = 0;
+    let collected = 0;
 
     admissions.forEach(a => {
       totalFees += a.totalFees || 0;
-      totalCollected += a.paidAmount || 0;
+      collected += a.paidAmount || 0;
     });
 
-    const pendingBalance = totalFees - totalCollected;
+    const pending = totalFees - collected;
 
-    // Today's collection
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // TODAY COLLECTION
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const todayPayments = await Payment.find({
-      paymentDate: { $gte: todayStart }
+      paymentDate: { $gte: today }
     });
 
-    const todaysCollection = todayPayments.reduce(
+    const todayCollection = todayPayments.reduce(
       (sum, p) => sum + p.amount,
       0
     );
+
+    // 📊 MONTHLY REVENUE (for chart)
+    const monthlyRevenueRaw = await Payment.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$paymentDate" },
+            month: { $month: "$paymentDate" }
+          },
+          total: { $sum: "$amount" }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } }
+    ]);
+
+    const monthlyRevenue = monthlyRevenueRaw.map(m => ({
+      month: `${m._id.month}-${m._id.year}`,
+      amount: m.total
+    }));
 
     res.json({
       enquiries: {
@@ -47,12 +64,19 @@ router.get("/", auth, async (req, res) => {
         open: openEnquiries,
         converted: convertedEnquiries
       },
-      admissions: totalAdmissions,
+      admissions: admissions.length,
       finance: {
         totalFees,
-        collected: totalCollected,
-        pending: pendingBalance,
-        today: todaysCollection
+        collected,
+        pending,
+        today: todayCollection
+      },
+      charts: {
+        monthlyRevenue,
+        enquiryFunnel: [
+          { name: "Open", value: openEnquiries },
+          { name: "Converted", value: convertedEnquiries }
+        ]
       }
     });
   } catch (error) {
